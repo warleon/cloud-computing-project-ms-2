@@ -1,1 +1,1 @@
-# Banking Platform - Accounts Service
+# MS2 – Accounts Service (Python, PostgreSQL)
