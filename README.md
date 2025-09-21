@@ -1,1 +1,1 @@
-# cloud-computing-project-ms
+# Banking Platform - Accounts Service
