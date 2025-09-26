@@ -1,0 +1,28 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: ms2_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ms2
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  ms2:
+    build: ./cloud-computing-project-ms-2
+    container_name: ms2_service
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/ms2
+      SERVICE_KEY_FOR_MS3: supersecretkey
+    depends_on:
+      - postgres
+    ports:
+      - "8080:8080"
+
+volumes:
+  postgres_data:
