@@ -1,80 +1,57 @@
 version: "3.9"
 
 services:
-  # =============================
-  # 📦 Base de datos PostgreSQL
-  # =============================
   ms2_postgres:
     image: postgres:15
     container_name: ms2_postgres
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: ${DB_USER:-ms2}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}
-      POSTGRES_DB: ${DB_NAME:-ms2_accounts}
+      POSTGRES_USER: ms2
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: ms2_accounts
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - ms-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-ms2} -d ${DB_NAME:-ms2_accounts}"]
+      test: ["CMD-SHELL", "pg_isready -U ms2 -d ms2_accounts"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 20s
-    networks:
-      - ms-network
-    restart: unless-stopped
 
-  # =============================
-  # ⚙️ Servicio principal MS2
-  # =============================
   ms2_service:
     build: .
     container_name: ms2_service
+    restart: unless-stopped
     depends_on:
       ms2_postgres:
         condition: service_healthy
     environment:
-      # Configuración general
-      APP_PORT: ${APP_PORT:-8080}
+      DB_HOST: ms2_postgres
+      DB_PORT: 5432
+      DB_NAME: ms2_accounts
+      DB_USER: ms2
+      DB_PASSWORD: secret
 
-      # Config DB
-      DB_HOST: ${DB_HOST:-ms2_postgres}
-      DB_PORT: ${DB_PORT:-5432}
-      DB_NAME: ${DB_NAME:-ms2_accounts}
-      DB_USER: ${DB_USER:-ms2}
-      DB_PASSWORD: ${DB_PASSWORD:-secret}
+      MS1_BASE_URL: http://ms1-customer-service:3000/api
+      MS1_VALIDATE: "true"
+      MS1_TIMEOUT: 3
 
-      # 🔗 Integración con MS1 (Customer Service)
-      MS1_BASE_URL: ${MS1_BASE_URL:-http://ms1-customer-service:3000/api}
-
-      # 🔗 Clave compartida para validaciones MS3
-      SERVICE_KEY_FOR_MS3: ${SERVICE_KEY_FOR_MS3:-changeme}
-
-      # 🔒 CORS / Frontend permitido
-      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000}
-
+      ALLOWED_ORIGINS: http://localhost:3000,http://34.192.101.95
+      SERVICE_KEY_FOR_MS3: changeme
+      APP_PORT: 8080
+      PYTHONUNBUFFERED: 1
     ports:
       - "8080:8080"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 15s
     networks:
       - ms-network
-    restart: unless-stopped
 
-# =============================
-# 🧱 Volúmenes persistentes
-# =============================
-volumes:
-  postgres_data:
-
-# =============================
-# 🌐 Red compartida entre microservicios
-# =============================
 networks:
   ms-network:
     external: true
+
+volumes:
+  postgres_data:
+    driver: local
