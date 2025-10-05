@@ -11,7 +11,7 @@ router = APIRouter()
 @router.post("/", response_model=schemas.AccountOut, status_code=201)
 def create_account(payload: schemas.AccountCreate, db: Session = Depends(database.get_db)):
     try:
-        exists = ms1.customer_exists(payload.customer_id)
+        exists = ms1.customer_exists(str(payload.customer_id))
     except ConnectionError as e:
         raise HTTPException(status_code=503, detail=str(e))
     except RuntimeError as e:
