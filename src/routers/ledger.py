@@ -1,3 +1,4 @@
+# src/routers/ledger.py
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from uuid import UUID
@@ -21,17 +22,29 @@ def get_ledger_entries(
     to_date: Optional[datetime] = Query(None, description="Filtrar movimientos hasta esta fecha"),
     min_amount: Optional[float] = Query(None, description="Filtrar movimientos con monto >= a este valor"),
     max_amount: Optional[float] = Query(None, description="Filtrar movimientos con monto <= a este valor"),
+    direction: Optional[str] = Query(None, description="Filtrar por tipo de movimiento: CREDIT o DEBIT"),
 ):
     """
     Retorna el historial de **movimientos contables (ledger_entries)** de una cuenta bancaria.
-    - Se soporta paginación (`skip`, `limit`).
-    - Se pueden aplicar filtros opcionales de fecha y rango de montos.
-    - Los resultados se devuelven ordenados por fecha descendente.
+
+    Soporta:
+    - Paginación (`skip`, `limit`)
+    - Filtros opcionales de fecha, monto y tipo de movimiento
+    - Orden descendente por fecha
     """
+
     # Validar existencia de la cuenta
     account = db.query(models.Account).filter(models.Account.id == account_id).first()
     if not account:
         raise HTTPException(status_code=404, detail="Account not found")
+
+    # Evitar acceder a cuentas cerradas (opcional)
+    if account.status == "CLOSED":
+        raise HTTPException(status_code=403, detail="Account is closed and cannot be queried")
+
+    # Validar rango de fechas
+    if from_date and to_date and from_date > to_date:
+        raise HTTPException(status_code=400, detail="Invalid date range: from_date must be <= to_date")
 
     # Query base
     query = db.query(models.LedgerEntry).filter(models.LedgerEntry.account_id == account_id)
@@ -45,6 +58,8 @@ def get_ledger_entries(
         query = query.filter(models.LedgerEntry.amount >= min_amount)
     if max_amount:
         query = query.filter(models.LedgerEntry.amount <= max_amount)
+    if direction:
+        query = query.filter(models.LedgerEntry.direction == direction.upper())
 
     # Ordenar y paginar
     entries = query.order_by(models.LedgerEntry.created_at.desc()).offset(skip).limit(limit).all()

@@ -4,8 +4,10 @@ from sqlalchemy.exc import SQLAlchemyError
 from uuid import UUID
 import os
 from datetime import datetime
+from ..services.ms3_notifier import notify_balance_updated
 
 from .. import models, schemas, database
+import asyncio
 
 router = APIRouter()
 
@@ -169,6 +171,14 @@ def transfer_funds(
         db.refresh(to_acc)
         db.refresh(debit)
         db.refresh(credit)
+
+        if os.getenv("MS3_NOTIFY_ENABLED", "false").lower() == "true":
+            asyncio.create_task(
+                notify_balance_updated(str(from_acc.id), float(from_acc.balance), from_acc.currency)
+            )
+            asyncio.create_task(
+                notify_balance_updated(str(to_acc.id), float(to_acc.balance), to_acc.currency)
+            )
 
         return schemas.TransferResponse(
             status="OK",
